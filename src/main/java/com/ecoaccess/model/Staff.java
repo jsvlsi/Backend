@@ -19,6 +19,12 @@ public class Staff {
         this.status = status;
     }
 
+    /** Temporary source-compatibility constructor for legacy callers. */
+    @Deprecated
+    public Staff(String id, String employeeId, String name, String passwordHash, String ignoredJobRole, StaffStatus status) {
+        this(id, employeeId, name, passwordHash, status);
+    }
+
     public String getId() { return id; }
     public void setId(String value) { id = value; }
     public String getEmployeeId() { return employeeId; }
@@ -29,4 +35,15 @@ public class Staff {
     public void setPasswordHash(String value) { passwordHash = value; }
     public StaffStatus getStatus() { return status; }
     public void setStatus(StaffStatus value) { status = value; }
+
+    // Record-style accessors retained while legacy callers are migrated.
+    public String id() { return id; }
+    public String employeeId() { return employeeId; }
+    public String name() { return name; }
+    public String passwordHash() { return passwordHash; }
+    public StaffStatus status() { return status; }
+
+    /** @deprecated Staff no longer has job roles. */
+    @Deprecated
+    public String jobRole() { return null; }
 }
