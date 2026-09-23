@@ -3,8 +3,12 @@ package com.ecoaccess.service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.*;
-import com.ecoaccess.model.Entities.FareQuote;
+import com.ecoaccess.model.FareQuote;
+import com.ecoaccess.model.Coupon;
 import com.ecoaccess.model.Enums.ServiceType;
+import com.ecoaccess.model.Enums.CouponStatus;
+
+import java.time.LocalDateTime;
 
 class CalculationTest {
     private final BookingService service = new BookingService();
@@ -26,7 +30,7 @@ class CalculationTest {
 
     @Test
     void couponCannotDiscountBeyondGross() {
-        var c = new com.ecoaccess.model.Entities.Coupon("x", "EA", "p", "n", 100, 50, 50, com.ecoaccess.model.Enums.CouponStatus.ACTIVE, java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(1), null, null, null);
+        Coupon c = new Coupon("x", "EA", "p", "n", 100, 50, 50, CouponStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now().plusHours(1), null, null, null);
         assertEquals(0, service.quote(ServiceType.WHEELCHAIR, 1, null, null, c).payable());
     }
 

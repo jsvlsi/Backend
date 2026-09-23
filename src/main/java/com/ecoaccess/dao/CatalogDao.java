@@ -1,5 +1,5 @@
 package com.ecoaccess.dao;
-import java.sql.*;import java.util.*;import com.ecoaccess.model.Entities.*;import com.ecoaccess.model.Enums.*;
+import java.sql.*;import java.util.*;import com.ecoaccess.model.*;import com.ecoaccess.model.Enums.*;
 public class CatalogDao {
  public Optional<Ticket> ticket(String pnr){try(Connection c=Database.connection();PreparedStatement p=c.prepareStatement("select * from tickets where pnr=?")){p.setString(1,pnr);try(ResultSet r=p.executeQuery()){return r.next()?Optional.of(ticket(r)):Optional.empty();}}catch(SQLException e){throw Database.failure(e);}}
  public List<String> locations(String station){try(Connection c=Database.connection();PreparedStatement p=c.prepareStatement("select location_name from station_locations where station=? order by location_name")){p.setString(1,station);try(ResultSet r=p.executeQuery()){List<String>x=new ArrayList<>();while(r.next())x.add(r.getString(1));return x;}}catch(SQLException e){throw Database.failure(e);}}

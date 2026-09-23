@@ -1,5 +1,5 @@
 package com.ecoaccess.service;
-import java.sql.*;import java.time.*;import java.util.*;import com.ecoaccess.dao.*;import com.ecoaccess.exception.AppExceptions.*;import com.ecoaccess.model.Entities.*;import com.ecoaccess.model.Enums.*;import com.ecoaccess.util.*;
+import java.sql.*;import java.time.*;import java.util.*;import com.ecoaccess.dao.*;import com.ecoaccess.exception.AppExceptions.*;import com.ecoaccess.model.*;import com.ecoaccess.model.Enums.*;import com.ecoaccess.util.*;
 public class OperationsService {private final AccountDao accounts;private final BookingDao bookings;private final OperationsDao ops;private final CatalogDao catalog;
  public OperationsService(AccountDao a,BookingDao b,OperationsDao o,CatalogDao c){accounts=a;bookings=b;ops=o;catalog=c;}
  public void staffAvailability(Staff s,boolean available){accounts.updateStaff(new Staff(s.id(),s.employeeId(),s.name(),s.passwordHash(),available?StaffStatus.AVAILABLE:StaffStatus.UNAVAILABLE));}

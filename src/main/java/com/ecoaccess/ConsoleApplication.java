@@ -6,7 +6,7 @@ import java.util.*;
 import com.ecoaccess.console.*;
 import com.ecoaccess.dao.*;
 import com.ecoaccess.exception.AppExceptions.*;
-import com.ecoaccess.model.Entities.*;
+import com.ecoaccess.model.*;
 import com.ecoaccess.model.Enums.*;
 import com.ecoaccess.service.*;
 
@@ -154,7 +154,7 @@ public class ConsoleApplication {
         }
         String bookingPnr = in.text("PNR [" + j.ticket().pnr() + "]: ");
         if (bookingPnr.isBlank()) bookingPnr = j.ticket().pnr();
-        BookingRequest r = new BookingRequest(bookingPnr, j.ticket().train(), in.date("Service date (YYYY-MM-DD): "), in.time("Service time (HH:MM): "), station, s, count, bags, rate, in.text("Pickup: "), in.text("Drop: "), code, method, cn, no, ex, cvv);
+        BookingRequest r = new BookingRequest(bookingPnr, j.ticket().train(), in.date("Service date (YYYY-MM-DD): "), in.time("Service time (HH:MM): "), station, s, count, bags, rate, in.text("Pickup point: "), in.text("Drop point: "), code, method, cn, no, ex, cvv);
         Booking b = booking.create(p, r);
         System.out.println("Booking created: " + b.id() + " | " + b.status().label() + " | Payable ₹" + b.fare());
     }
@@ -261,16 +261,16 @@ public class ConsoleApplication {
     }
 
     private void adminDash() {
-        System.out.println("Bookings: " + booking.all("", null).size() + " | Assignment pending: " + booking.all("", null).stream().filter(b -> b.status() == BookingStatus.BOOKED || b.status() == BookingStatus.ASSIGNED).count() + " | Waste pending: " + ops.wastes(null, "").stream().filter(w -> w.status() == WasteStatus.PENDING).count() + " | Open complaints: " + ops.cases(null, true, "").stream().filter(c -> "Open".equals(c.status())).count());
+        System.out.println("Bookings: " + booking.all("", null).size() + " | Assignment pending: " + booking.all("", null).stream().filter(b -> b.status() == BookingStatus.BOOKED || b.status() == BookingStatus.ASSIGNED).count());
     }
 
     private void staffAdmin() {
         List<Staff> x = auth.dao().staff(in.text("Search: "));
-        x.forEach(s -> System.out.println(s.id() + " | " + s.employeeId() + " | " + s.name() + " | " + s.jobRole() + " | " + s.status().label()));
+        x.forEach(s -> System.out.println(s.id() + " | " + s.employeeId() + " | " + s.name() + " | " + s.status().label()));
         System.out.println("1 Add 2 Edit name 3 Delete 0 Back");
         int c = in.number("Choice: ");
         if (c == 1) {
-            Staff s = ops.addStaff(in.text("Name: "), in.text("Job role (blank Porter): "));
+            Staff s = ops.addStaff(in.text("Name: "));
             System.out.println("Created " + s.employeeId() + " with default password Test@123");
         } else if (c == 2) {
             Staff s = auth.dao().staffById(in.text("Staff internal ID: ")).orElseThrow(() -> new NotFoundException("Staff not found."));
