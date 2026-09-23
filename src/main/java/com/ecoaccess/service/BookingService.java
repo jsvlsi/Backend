@@ -1,13 +1,123 @@
 package com.ecoaccess.service;
 import java.sql.*;import java.time.*;import java.util.*;import com.ecoaccess.dao.*;import com.ecoaccess.exception.AppExceptions.*;import com.ecoaccess.model.Entities.*;import com.ecoaccess.model.Enums.*;import com.ecoaccess.util.*;
-public class BookingService {private final BookingDao bookings=new BookingDao();private final CatalogDao catalog=new CatalogDao();private final OperationsDao ops=new OperationsDao();private final AccountDao accounts=new AccountDao();
- public Journey validateJourney(Passenger p,String pnr){Ticket t=catalog.ticket(Validation.pnr(pnr)).orElseThrow(()->new ValidationException("Invalid PNR. Use one of the demo ticket PNRs."));catalog.upsertJourney(Ids.next("JV"),p.id(),t);return catalog.journey(p.id()).orElseThrow();}
- public Journey requireJourney(String passengerId){return catalog.journey(passengerId).filter(Journey::valid).orElseThrow(()->new BusinessRuleException("Please validate your journey before continuing."));}
- public int available(String station,ServiceType type){if(type==ServiceType.PORTER){int free=0;for(Staff s:accounts.availableStaff())if(matches(s.jobRole(),type)&&!bookings.activeStaff(s.employeeId()))free++;return free;}int stock=ops.resource(station,type).map(Resource::quantity).orElse(0);return Math.max(0,stock-bookings.activeDemand(station,type));}
- public FareQuote quote(ServiceType s,int count,Integer bags,Integer rate,Coupon coupon){int base;if(s==ServiceType.PORTER){Validation.range(bags==null?0:bags,1,20,"Enter between 1 and 20 bags.");if(rate==null||!(rate==50||rate==60||rate==70||rate==80))throw new ValidationException("Select a weight range.");base=bags*rate;}else base=(s==ServiceType.WHEELCHAIR?50:70)*count;int tax=(int)Math.round(base*.05);int gross=base+tax;int discount=coupon==null?0:Math.min(coupon.remaining(),gross);return new FareQuote(base,tax,gross,discount,Math.max(0,gross-discount));}
- public Booking create(Passenger p,BookingRequest r){Journey j=requireJourney(p.id());if(!Validation.pnr(r.pnr()).equals(j.ticket().pnr()))throw new ValidationException("PNR must match your validated journey.");if(!r.train().matches("\\d{5}"))throw new ValidationException("Enter a valid 5-digit train number.");Validation.bookingDate(r.date());Validation.required(r.station(),"Station is required.");Validation.required(r.pickup(),"Select a pickup point.");Validation.required(r.drop(),"Select a drop point.");if(r.pickup().equalsIgnoreCase(r.drop()))throw new ValidationException("Pickup point and drop point must be different.");if(r.pickup().length()>80||r.drop().length()>80)throw new ValidationException("Other location must be at most 80 characters.");int count=r.service()==ServiceType.PORTER?1:r.passengerCount();if(r.service()==ServiceType.INTER_VEHICLE)Validation.range(count,1,8,"Enter between 1 and 8 passengers.");if(r.service()==ServiceType.WHEELCHAIR&&count>available(r.station(),r.service()))throw new BusinessRuleException("Only "+available(r.station(),r.service())+" wheelchair(s) available.");if(r.service()==ServiceType.PORTER&&available(r.station(),r.service())<1)throw new BusinessRuleException("No porters available.");if(r.service()==ServiceType.INTER_VEHICLE&&count>available(r.station(),r.service()))throw new BusinessRuleException("No inter-platform vehicles available.");if("card".equalsIgnoreCase(r.paymentMethod()))Validation.card(r.cardName(),r.cardNumber(),r.cardExpiry(),r.cvv());else if(!"upi".equalsIgnoreCase(r.paymentMethod()))throw new ValidationException("Select UPI or card payment.");Coupon coupon=r.couponCode()==null||r.couponCode().isBlank()?null:validCoupon(p.id(),r.couponCode());FareQuote q=quote(r.service(),count,r.bags(),r.weightRate(),coupon);Staff assigned=firstAssignable(r.service());Booking b=new Booking(Ids.next("BK"),p.id(),p.name(),r.service(),r.station(),j.ticket().platform(),r.pickup(),r.drop(),r.date(),r.time(),q.payable(),q.gross(),q.discount(),coupon==null?null:coupon.code(),assigned==null?BookingStatus.BOOKED:BookingStatus.ASSIGNED,assigned==null?null:assigned.employeeId(),r.train(),r.service()==ServiceType.PORTER?r.bags():null,r.service()==ServiceType.PORTER?r.weightRate():null,count);try(Connection c=Database.connection()){c.setAutoCommit(false);try{bookings.insert(c,b);if(coupon!=null)ops.spendCoupon(c,coupon,q.discount(),"booking",b.id());c.commit();return b;}catch(Exception e){c.rollback();if(e instanceof RuntimeException re)throw re;throw new DatabaseException("Unable to create booking.",e);}}catch(SQLException e){throw Database.failure(e);}}
- private Coupon validCoupon(String passengerId,String code){Coupon c=ops.coupon(code).orElseThrow(()->new NotFoundException("Coupon not found."));if(!c.passengerId().equals(passengerId)||c.status()!=CouponStatus.ACTIVE||c.remaining()<=0||c.expiresAt().isBefore(LocalDateTime.now()))throw new BusinessRuleException("This coupon is expired or no longer available.");return c;}
- private Staff firstAssignable(ServiceType type){for(Staff s:accounts.availableStaff())if(matches(s.jobRole(),type)&&!bookings.activeStaff(s.employeeId()))return s;return null;} private boolean matches(String role,ServiceType type){String x=role.toLowerCase();return switch(type){case PORTER->x.contains("porter");case WHEELCHAIR->x.contains("wheelchair");case INTER_VEHICLE->x.contains("vehicle")||x.contains("driver");};}
- public List<Booking> passengerBookings(String id,String search){return bookings.list(id,null,search,null,null);} public List<Booking> staffBookings(String id,String search,String service,String status){return bookings.list(null,id,search,service,status);} public List<Booking> all(String search,String service){return bookings.list(null,null,search,service,null);} public Booking owned(String id,String passenger){Booking b=bookings.byId(id).orElseThrow(()->new NotFoundException("Booking not found."));if(!b.passengerId().equals(passenger))throw new AuthorizationException("You may only view your own booking.");return b;}
- public BookingDao dao(){return bookings;} public OperationsDao operations(){return ops;}
+
+public class BookingService {
+    private final BookingDao bookings = new BookingDao();
+    private final CatalogDao catalog = new CatalogDao();
+    private final OperationsDao ops = new OperationsDao();
+    private final AccountDao accounts = new AccountDao();
+
+    public Journey validateJourney(Passenger p, String pnr){
+        Ticket t = catalog.ticket(Validation.pnr(pnr)).orElseThrow(() -> new ValidationException("Invalid PNR. Use one of the demo ticket PNRs."));
+        catalog.upsertJourney(Ids.next("JV"), p.id(), t);
+        return catalog.journey(p.id()).orElseThrow();
+    }
+
+    public Journey requireJourney(String passengerId){
+        return catalog.journey(passengerId).filter(Journey::valid).orElseThrow(() -> new BusinessRuleException("Please validate your journey before continuing."));
+    }
+
+    public int available(String station, ServiceType type){
+        if (type == ServiceType.PORTER) {
+            int free = 0;
+            for (Staff s : accounts.availableStaff()) {
+                if (!bookings.activeStaff(s.employeeId())) free++;
+            }
+            return free;
+        }
+        int stock = ops.resource(station, type).map(Resource::quantity).orElse(0);
+        return Math.max(0, stock - bookings.activeDemand(station, type));
+    }
+
+    public FareQuote quote(ServiceType s,int count,Integer bags,Integer rate,Coupon coupon){
+        int base;
+        if(s == ServiceType.PORTER){
+            Validation.range(bags==null?0:bags,1,20,"Enter between 1 and 20 bags.");
+            if(rate==null||!(rate==50||rate==60||rate==70||rate==80)) throw new ValidationException("Select a weight range.");
+            base = bags * rate;
+        } else {
+            base = (s == ServiceType.WHEELCHAIR ? 50 : 70) * count;
+        }
+        int tax = (int)Math.round(base * .05);
+        int gross = base + tax;
+        int discount = coupon == null ? 0 : Math.min(coupon.remaining(), gross);
+        return new FareQuote(base, tax, gross, discount, Math.max(0, gross - discount));
+    }
+
+    public Booking create(Passenger p, BookingRequest r){
+        Journey j = requireJourney(p.id());
+        if(!Validation.pnr(r.pnr()).equals(j.ticket().pnr())) throw new ValidationException("PNR must match your validated journey.");
+        if(!r.train().matches("\\d{5}")) throw new ValidationException("Enter a valid 5-digit train number.");
+        Validation.bookingDate(r.date());
+        Validation.required(r.station(), "Station is required.");
+        Validation.required(r.pickup(), "Select a pickup point.");
+        Validation.required(r.drop(), "Select a drop point.");
+        if(r.pickup().equalsIgnoreCase(r.drop())) throw new ValidationException("Pickup point and drop point must be different.");
+        if(r.pickup().length() > 80 || r.drop().length() > 80) throw new ValidationException("Other location must be at most 80 characters.");
+        int count = r.service() == ServiceType.PORTER ? 1 : r.passengerCount();
+        if(r.service() == ServiceType.INTER_VEHICLE) Validation.range(count,1,8,"Enter between 1 and 8 passengers.");
+        if(r.service() == ServiceType.WHEELCHAIR && count > available(r.station(), r.service())) throw new BusinessRuleException("Only " + available(r.station(), r.service()) + " wheelchair(s) available.");
+        if(r.service() == ServiceType.PORTER && available(r.station(), r.service()) < 1) throw new BusinessRuleException("No porters available.");
+        if(r.service() == ServiceType.INTER_VEHICLE && count > available(r.station(), r.service())) throw new BusinessRuleException("No inter-platform vehicles available.");
+        if("card".equalsIgnoreCase(r.paymentMethod())) Validation.card(r.cardName(), r.cardNumber(), r.cardExpiry(), r.cvv());
+        else if(!"upi".equalsIgnoreCase(r.paymentMethod())) throw new ValidationException("Select UPI or card payment.");
+
+        Coupon coupon = r.couponCode() == null || r.couponCode().isBlank() ? null : validCoupon(p.id(), r.couponCode());
+        FareQuote q = quote(r.service(), count, r.bags(), r.weightRate(), coupon);
+        Staff assigned = firstAssignable(r.service());
+
+        Booking b = new Booking(
+            Ids.next("BK"), p.id(), p.name(), r.service(), r.station(), j.ticket().platform(),
+            r.pickup(), r.drop(), r.date(), r.time(), q.payable(), q.gross(), q.discount(),
+            coupon == null ? null : coupon.code(), assigned == null ? BookingStatus.BOOKED : BookingStatus.ASSIGNED,
+            assigned == null ? null : assigned.employeeId(), r.train(),
+            r.service() == ServiceType.PORTER ? r.bags() : null,
+            r.service() == ServiceType.PORTER ? r.weightRate() : null,
+            count
+        );
+
+        try(Connection c = Database.connection()){
+            c.setAutoCommit(false);
+            try {
+                bookings.insert(c, b);
+                if(coupon != null) ops.spendCoupon(c, coupon, q.discount(), "booking", b.id());
+                c.commit();
+                return b;
+            } catch (Exception e) {
+                c.rollback();
+                if (e instanceof RuntimeException re) throw re;
+                throw new DatabaseException("Unable to create booking.", e);
+            }
+        } catch (SQLException e) {
+            throw Database.failure(e);
+        }
+    }
+
+    private Coupon validCoupon(String passengerId, String code){
+        Coupon c = ops.coupon(code).orElseThrow(() -> new NotFoundException("Coupon not found."));
+        if(!c.passengerId().equals(passengerId) || c.status() != CouponStatus.ACTIVE || c.remaining() <= 0 || c.expiresAt().isBefore(LocalDateTime.now()))
+            throw new BusinessRuleException("This coupon is expired or no longer available.");
+        return c;
+    }
+
+    private Staff firstAssignable(ServiceType type){
+        for (Staff s : accounts.availableStaff()) {
+            if (!bookings.activeStaff(s.employeeId()) && matches(s.jobRole(), type)) return s;
+        }
+        return null;
+    }
+
+    private boolean matches(String jobRole, ServiceType type){
+        if (jobRole == null || jobRole.isBlank()) return true;
+        String normalized = jobRole.trim();
+        if ("Staff".equalsIgnoreCase(normalized) || "Support Staff".equalsIgnoreCase(normalized)) return true;
+        if (type == ServiceType.WHEELCHAIR) return "Wheelchair".equalsIgnoreCase(normalized);
+        if (type == ServiceType.PORTER) return "Porter".equalsIgnoreCase(normalized);
+        return true;
+    }
+
+    public List<Booking> passengerBookings(String id,String search){return bookings.list(id,null,search,null,null);} 
+    public List<Booking> staffBookings(String id,String search,String service,String status){return bookings.list(null,id,search,service,status);} 
+    public BookingDao dao(){return bookings;} 
+    public OperationsDao operations(){return ops;} 
 }
