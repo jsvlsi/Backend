@@ -1,0 +1,10 @@
+package com.ecoaccess.model;
+
+import java.time.LocalDateTime; import com.ecoaccess.model.Enums.*;
+
+public class Waste {
+    private String id; private String passengerId; private String passenger; private WasteStatus status; private int rewardPoints; private String photoPath; private LocalDateTime submittedAt; private LocalDateTime reviewedAt; private String remark; private String station; private String platform;
+    public Waste() { }
+    public Waste(String id,String passengerId,String passenger,WasteStatus status,int rewardPoints,String photoPath,LocalDateTime submittedAt,LocalDateTime reviewedAt,String remark,String station,String platform){this.id=id;this.passengerId=passengerId;this.passenger=passenger;this.status=status;this.rewardPoints=rewardPoints;this.photoPath=photoPath;this.submittedAt=submittedAt;this.reviewedAt=reviewedAt;this.remark=remark;this.station=station;this.platform=platform;}
+    public String getId(){return id;} public void setId(String value){id=value;} public String getPassengerId(){return passengerId;} public void setPassengerId(String value){passengerId=value;} public String getPassenger(){return passenger;} public void setPassenger(String value){passenger=value;} public WasteStatus getStatus(){return status;} public void setStatus(WasteStatus value){status=value;} public int getRewardPoints(){return rewardPoints;} public void setRewardPoints(int value){rewardPoints=value;} public String getPhotoPath(){return photoPath;} public void setPhotoPath(String value){photoPath=value;} public LocalDateTime getSubmittedAt(){return submittedAt;} public void setSubmittedAt(LocalDateTime value){submittedAt=value;} public LocalDateTime getReviewedAt(){return reviewedAt;} public void setReviewedAt(LocalDateTime value){reviewedAt=value;} public String getRemark(){return remark;} public void setRemark(String value){remark=value;} public String getStation(){return station;} public void setStation(String value){station=value;} public String getPlatform(){return platform;} public void setPlatform(String value){platform=value;}
+}
