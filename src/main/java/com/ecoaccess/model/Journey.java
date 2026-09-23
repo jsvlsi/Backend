@@ -7,4 +7,6 @@ public class Journey {
     public Journey() { }
     public Journey(String id,String passengerId,Ticket ticket,boolean valid,LocalDateTime validatedAt){this.id=id;this.passengerId=passengerId;this.ticket=ticket;this.valid=valid;this.validatedAt=validatedAt;}
     public String getId(){return id;} public void setId(String value){id=value;} public String getPassengerId(){return passengerId;} public void setPassengerId(String value){passengerId=value;} public Ticket getTicket(){return ticket;} public void setTicket(Ticket value){ticket=value;} public boolean isValid(){return valid;} public void setValid(boolean value){valid=value;} public LocalDateTime getValidatedAt(){return validatedAt;} public void setValidatedAt(LocalDateTime value){validatedAt=value;}
+
+    public String id(){return id;} public String passengerId(){return passengerId;} public Ticket ticket(){return ticket;} public boolean valid(){return valid;} public LocalDateTime validatedAt(){return validatedAt;}
 }

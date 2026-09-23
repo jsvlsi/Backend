@@ -11,4 +11,11 @@ public class Passenger {
     public String getEmail(){return email;} public void setEmail(String value){email=value;}
     public String getPasswordHash(){return passwordHash;} public void setPasswordHash(String value){passwordHash=value;}
     public int getPoints(){return points;} public void setPoints(int value){points=value;}
+
+    public String id(){return id;}
+    public String name(){return name;}
+    public String mobile(){return mobile;}
+    public String email(){return email;}
+    public String passwordHash(){return passwordHash;}
+    public int points(){return points;}
 }
